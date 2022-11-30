@@ -76,7 +76,9 @@ export class Store {
   }
 
   install (app, injectKey) {
+    // provide 向下注入 store
     app.provide(injectKey || storeKey, this)
+    // 设置 $store
     app.config.globalProperties.$store = this
 
     const useDevtools = this._devtools !== undefined

@@ -41,13 +41,13 @@ export function resetStoreState (store, state, hot) {
 
   // create a new effect scope and create computed object inside it to avoid
   // getters (computed) getting destroyed on component unmount.
+
+  // 创建一个 effect 作用域
   const scope = effectScope(true)
 
   scope.run(() => {
+    // 为每一个 getter 应用 computed
     forEachValue(wrappedGetters, (fn, key) => {
-      // use computed to leverage its lazy-caching mechanism
-      // direct inline function use will lead to closure preserving oldState.
-      // using partial to return function with only arguments preserved in closure environment.
       computedObj[key] = partial(fn, store)
       computedCache[key] = computed(() => computedObj[key]())
       Object.defineProperty(store.getters, key, {
@@ -57,6 +57,7 @@ export function resetStoreState (store, state, hot) {
     })
   })
 
+  // reactive 将 state 响应式处理
   store._state = reactive({
     data: state
   })
