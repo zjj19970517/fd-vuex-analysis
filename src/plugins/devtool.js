@@ -12,15 +12,19 @@ export default function devtoolPlugin (store) {
 
   devtoolHook.emit('vuex:init', store)
 
+  // 时空穿梭的功能
   devtoolHook.on('vuex:travel-to-state', targetState => {
+    // 直接替换成某个状态
     store.replaceState(targetState)
   })
 
   store.subscribe((mutation, state) => {
+    // 订阅到的 mutation 的更新
     devtoolHook.emit('vuex:mutation', mutation, state)
   }, { prepend: true })
 
   store.subscribeAction((action, state) => {
+    // 订阅到的 action 的更新
     devtoolHook.emit('vuex:action', action, state)
   }, { prepend: true })
 }

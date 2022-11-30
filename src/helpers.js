@@ -7,7 +7,10 @@ import { isObject } from './util'
  * @param {Object}
  */
 export const mapState = normalizeNamespace((namespace, states) => {
+  // namespace 可能为空 也可能有值
+
   const res = {}
+  // 校验传入的 map
   if (__DEV__ && !isValidMap(states)) {
     console.error('[vuex] mapState: mapper parameter must be either an Array or an Object')
   }

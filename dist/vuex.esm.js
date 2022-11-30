@@ -1,69 +1,29 @@
 /*!
  * vuex v3.6.2
- * (c) 2021 Evan You
+ * (c) 2022 Evan You
  * @license MIT
  */
 function applyMixin (Vue) {
-  var version = Number(Vue.version.split('.')[0]);
 
-  if (version >= 2) {
-    Vue.mixin({ beforeCreate: vuexInit });
-  } else {
-    // override init and inject vuex init procedure
-    // for 1.x backwards compatibility.
-    var _init = Vue.prototype._init;
-    Vue.prototype._init = function (options) {
-      if ( options === void 0 ) options = {};
-
-      options.init = options.init
-        ? [vuexInit].concat(options.init)
-        : vuexInit;
-      _init.call(this, options);
-    };
-  }
-
-  /**
-   * Vuex init hook, injected into each instances init hooks list.
-   */
+  // 创建全局 Mixin
+  // 为每个组件的 beforeCreate 钩子中添加初始化逻辑
+  Vue.mixin({ beforeCreate: vuexInit });
 
   function vuexInit () {
     var options = this.$options;
     // store injection
+    // FIXME: 本质就是给每个组件都注入 this.$store 
     if (options.store) {
+      // 根组件选项上才有 store
+      // 根组件实例上挂载 $store 对象
       this.$store = typeof options.store === 'function'
         ? options.store()
         : options.store;
     } else if (options.parent && options.parent.$store) {
+      // 子组件的 $store 均指向父组件的
       this.$store = options.parent.$store;
     }
   }
-}
-
-var target = typeof window !== 'undefined'
-  ? window
-  : typeof global !== 'undefined'
-    ? global
-    : {};
-var devtoolHook = target.__VUE_DEVTOOLS_GLOBAL_HOOK__;
-
-function devtoolPlugin (store) {
-  if (!devtoolHook) { return }
-
-  store._devtoolHook = devtoolHook;
-
-  devtoolHook.emit('vuex:init', store);
-
-  devtoolHook.on('vuex:travel-to-state', function (targetState) {
-    store.replaceState(targetState);
-  });
-
-  store.subscribe(function (mutation, state) {
-    devtoolHook.emit('vuex:mutation', mutation, state);
-  }, { prepend: true });
-
-  store.subscribeAction(function (action, state) {
-    devtoolHook.emit('vuex:action', action, state);
-  }, { prepend: true });
 }
 
 /**
@@ -214,6 +174,7 @@ Module.prototype.forEachMutation = function forEachMutation (fn) {
 Object.defineProperties( Module.prototype, prototypeAccessors );
 
 var ModuleCollection = function ModuleCollection (rawRootModule) {
+  debugger
   // register root module (Vuex.Store options)
   this.register([], rawRootModule, false);
 };
@@ -239,10 +200,6 @@ ModuleCollection.prototype.update = function update$1 (rawRootModule) {
 ModuleCollection.prototype.register = function register (path, rawModule, runtime) {
     var this$1 = this;
     if ( runtime === void 0 ) runtime = true;
-
-  if ((process.env.NODE_ENV !== 'production')) {
-    assertRawModule(path, rawModule);
-  }
 
   var newModule = new Module(rawModule, runtime);
   if (path.length === 0) {
@@ -372,29 +329,29 @@ var Store = function Store (options) {
   // Auto install if it is not done yet and `window` has `Vue`.
   // To allow users to avoid auto-installation in some cases,
   // this code should be placed here. See #731
+  // CDN 形式自动安装
   if (!Vue && typeof window !== 'undefined' && window.Vue) {
     install(window.Vue);
-  }
-
-  if ((process.env.NODE_ENV !== 'production')) {
-    assert(Vue, "must call Vue.use(Vuex) before creating a store instance.");
-    assert(typeof Promise !== 'undefined', "vuex requires a Promise polyfill in this browser.");
-    assert(this instanceof Store, "store must be called with the new operator.");
   }
 
   var plugins = options.plugins; if ( plugins === void 0 ) plugins = [];
   var strict = options.strict; if ( strict === void 0 ) strict = false;
 
+  // 内部私有状态
   // store internal state
-  this._committing = false;
-  this._actions = Object.create(null);
-  this._actionSubscribers = [];
-  this._mutations = Object.create(null);
-  this._wrappedGetters = Object.create(null);
+  this._committing = false; // 是否在进行提交状态标识
+  this._actions = Object.create(null); // acitons操作对象
+  this._actionSubscribers = []; // 用来存放 actions 订阅
+  this._mutations = Object.create(null); // mutations操作对象
+  this._wrappedGetters = Object.create(null); // 封装后的getters集合对象
+  // 模块收集器，构造模块树形结构
   this._modules = new ModuleCollection(options);
+  // 用于存储模块命名空间的关系
   this._modulesNamespaceMap = Object.create(null);
   this._subscribers = [];
+  // 用于使用 $watch 观测 getters
   this._watcherVM = new Vue();
+  // 用来存放生成的本地 getters 的缓存
   this._makeLocalGettersCache = Object.create(null);
 
   // bind commit and dispatch to self
@@ -412,36 +369,35 @@ var Store = function Store (options) {
   // strict mode
   this.strict = strict;
 
+  // 根模块的state
   var state = this._modules.root.state;
 
-  // init root module.
-  // this also recursively registers all sub-modules
-  // and collects all module getters inside this._wrappedGetters
+  // 初始化 根模块。
+  // 并且也递归的注册所有子模块。
+  // 并且收集所有模块的 getters 放在 this._wrappedGetters 里面。
   installModule(this, state, [], this._modules.root);
 
-  // initialize the store vm, which is responsible for the reactivity
-  // (also registers _wrappedGetters as computed properties)
+  // 初始化 store._vm 响应式的
+  // 并且注册 _wrappedGetters 作为 computed 的属性
   resetStoreVM(this, state);
 
+  // 应用插件
   // apply plugins
   plugins.forEach(function (plugin) { return plugin(this$1); });
-
-  var useDevtools = options.devtools !== undefined ? options.devtools : Vue.config.devtools;
-  if (useDevtools) {
-    devtoolPlugin(this);
-  }
 };
 
 var prototypeAccessors$1 = { state: { configurable: true } };
 
+// this.$store.state 就是来自这里
+// 实际指向 this._vm.data.$$state
+// this._vm 表示一个空 Vue 实例对象
 prototypeAccessors$1.state.get = function () {
   return this._vm._data.$$state
 };
 
 prototypeAccessors$1.state.set = function (v) {
-  if ((process.env.NODE_ENV !== 'production')) {
-    assert(false, "use store.replaceState() to explicit replace store state.");
-  }
+  // 代理 state 的 setter 
+  // 确保是只读的
 };
 
 Store.prototype.commit = function commit (_type, _payload, _options) {
@@ -915,14 +871,12 @@ function unifyObjectStyle (type, payload, options) {
 
 function install (_Vue) {
   if (Vue && _Vue === Vue) {
-    if ((process.env.NODE_ENV !== 'production')) {
-      console.error(
-        '[vuex] already installed. Vue.use(Vuex) should be called only once.'
-      );
-    }
+    // 已经安装过了
     return
   }
+
   Vue = _Vue;
+  // 应用 Mixin 完成混入
   applyMixin(Vue);
 }
 
@@ -1084,7 +1038,7 @@ var createNamespacedHelpers = function (namespace) { return ({
  * normalizeMap([1, 2, 3]) => [ { key: 1, val: 1 }, { key: 2, val: 2 }, { key: 3, val: 3 } ]
  * normalizeMap({a: 1, b: 2, c: 3}) => [ { key: 'a', val: 1 }, { key: 'b', val: 2 }, { key: 'c', val: 3 } ]
  * @param {Array|Object} map
- * @return {Object}
+ * @return {Array}
  */
 function normalizeMap (map) {
   if (!isValidMap(map)) {

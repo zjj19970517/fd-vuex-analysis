@@ -26,21 +26,26 @@ export default class ModuleCollection {
   }
 
   register (path, rawModule, runtime = true) {
-    if (__DEV__) {
-      assertRawModule(path, rawModule)
-    }
-
     const newModule = new Module(rawModule, runtime)
+
+    // path 为空，此时为根模块
     if (path.length === 0) {
+      // ModuleCollection 内部只有一个 root 属性，代表整个应用的根模块
       this.root = newModule
     } else {
+      // 子模块注册走这里
+      // 解析出 parent
       const parent = this.get(path.slice(0, -1))
+      // 将子模块添加到 parent 模块中
       parent.addChild(path[path.length - 1], newModule)
     }
 
     // register nested modules
+    // 如果存在 modules 选项
+    // 需要填充 _children 完成子模块收集
     if (rawModule.modules) {
       forEachValue(rawModule.modules, (rawChildModule, key) => {
+        // 递归调用 register 完成子模块的注册
         this.register(path.concat(key), rawChildModule, runtime)
       })
     }
